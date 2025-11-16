@@ -2,10 +2,9 @@ from google.adk.agents import Agent
 from google.adk.tools import google_search
 
 import google.generativeai as genai
-
 import os
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # --- פונקציה ליצירת תמונה באמצעות Gemini ---
 def generate_recipe_image(recipe_title: str) -> str:
@@ -26,16 +25,18 @@ def generate_recipe_image(recipe_title: str) -> str:
     except Exception:
         pass
 
-    # fallback במקרה ואין תמונה
+    # fallback במקרה שאין תמונה
     return "https://via.placeholder.com/600x400?text=No+Image+Available"
 
 
 # --- פונקציה למציאת 2 מתכונים ---
-def find_recipes(query: str) -> dict:
+def find_recipes(ingredients: str, preference: str) -> dict:
     """
-    מחזיר 2 מתכונים מתאימים לפי רשימת מצרכים והעדפות.
+    מחפש 2 מתכונים לפי מצרכים + העדפה.
     """
+    query = f"מתכונים עם {ingredients} שמתאימים ל {preference}"
     search_results = google_search(query=query)
+
     if not search_results or "results" not in search_results:
         return {"status": "error", "message": "לא נמצאו מתכונים תואמים."}
 
@@ -53,7 +54,7 @@ def find_recipes(query: str) -> dict:
 # --- פונקציה להבאת מתכון מלא כולל תמונה ---
 def get_full_recipe(recipe_title: str) -> dict:
     """
-    מחפש מתכון מלא ומחזיר הוראות + תמונה אמיתית שנוצרת ע"י Gemini.
+    מחפש מתכון מלא ומחזיר הוראות + תמונה שנוצרת ע"י Gemini.
     """
     search_query = f"{recipe_title} מתכון מלא שלבי הכנה"
     results = google_search(query=search_query)
@@ -78,15 +79,37 @@ def get_full_recipe(recipe_title: str) -> dict:
 root_agent = Agent(
     name="recipe_agent",
     model="gemini-2.0-flash",
-    description="Agent שמציע 2 מתכונים לבחירה ומחזיר את המתכון המלא כולל הוראות ותמונה שנוצרת במערכת.",
+    description="Agent שמציע 2 מתכונים לבחירה ומחזיר מתכון מלא כולל הוראות ותמונה.",
     instruction="""
-    אתה סוכן עוזר בישול אינטראקטיבי.
-    שלב 1: המשתמש יקליד מצרכים והעדפות.
-    שלב 2: השתמש בפונקציה find_recipes(query) כדי להציע 2 מתכונים מתאימים.
-    שלב 3: הצג למשתמש את שמות המתכונים ותיאור קצר.
-    שלב 4: שאל: "איזה מתכון תרצה שאביא במלואו?"
-    שלב 5: כשהמשתמש בוחר מתכון, השתמש בפונקציה get_full_recipe(recipe_title) כדי להביא הוראות + תמונה שנוצרת אוטומטית.
-    ענה בעברית בלבד, בצורה נעימה וברורה.
+    אתה סוכן בישול חכם ומקצועי.
+    תפקידך לסייע למשתמש למצוא מתכונים לפי מצרכים, להתאים אותם להעדפות,
+    ולהציג מתכון מלא כולל תמונת מנה.
+
+    אופן העבודה שלך:
+
+    1. המשתמש ימסור רשימת מצרכים שיש לו בבית.
+
+    2. שאל את המשתמש:
+       "האם יש לך העדפות למתכון? לדוגמה: קר / חם / מהיר / קל / פרווה / חלבי / חריף / בריא / לא משנה."
+
+    3. לאחר שהמשתמש עונה — הפעל:
+       find_recipes(ingredients, preference)
+       והצג שני מתכונים מתאימים: שם + תיאור קצר.
+
+    4. שאל את המשתמש:
+       "איזה מתכון תרצה שאביא עבורך במלואו?"
+
+    5. כשהמשתמש בוחר — הפעל:
+       get_full_recipe(recipe_title)
+
+    6. החזר למשתמש:
+       • שם המנה
+       • הוראות הכנה
+       • תמונה שנוצרה באמצעות Gemini (במידה ומותר על-ידי נטפרי)
+
+    הנחיות כלליות:
+    - כתוב תמיד בעברית, בצורה ברורה, נעימה ומקצועית.
+    - אם משהו לא ברור — בקש הבהרה מהמשתמש.
     """,
     tools=[google_search],
 )
